@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="am">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>ፊደል</title>
+<style>
+/* EMBEDDED FONT FALLBACK - works offline */
+@font-face {
+  font-family: 'Noto Sans Ethiopic';
+  src: local('Noto Sans Ethiopic'), local('NotoSansEthiopic');
+  font-weight: 400;
+}
+@font-face {
+  font-family: 'Noto Sans Ethiopic';
+  src: local('Noto Sans Ethiopic'), local('NotoSansEthiopic');
+  font-weight: 700;
+}
+@font-face {
+  font-family: 'Noto Sans Ethiopic';
+  src: local('Noto Sans Ethiopic'), local('NotoSansEthiopic');
+  font-weight: 900;
+}
+
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;overflow:hidden;background:#080806;font-family:'Noto Sans Ethiopic',system-ui,sans-serif;touch-action:manipulation;-webkit-tap-highlight-color:transparent;user-select:none}
+#app{position:fixed;inset:0;display:flex;flex-direction:column;overflow:hidden}
+#rows{flex:1;overflow-y:auto;overflow-x:hidden;padding:0 0 0;scroll-behavior:smooth}
+#rows::-webkit-scrollbar{display:none}
+
+.row{border-bottom:1px solid #141410}
+.row.expanded{background:#0f0e0b}
+
+.root-btn{width:100%;display:flex;align-items:center;padding:0 18px;height:68px;cursor:pointer;background:transparent;border:none;text-align:left;gap:0;transition:background 0.12s}
+.root-btn:active{background:#111}
+.root-char{font-size:2.4rem;font-weight:900;color:#d4c49a;min-width:52px;line-height:1;letter-spacing:-0.01em}
+.root-rom{font-family:system-ui,monospace;font-size:0.68rem;color:#4a3e28;font-weight:700;letter-spacing:0.14em;min-width:36px;padding-left:4px}
+.root-preview{flex:1;display:flex;gap:7px;align-items:center;overflow:hidden;padding:0 10px}
+.root-preview span{font-size:1.15rem;color:#2e2920;font-weight:700;flex-shrink:0}
+.row-count{font-family:system-ui,sans-serif;font-size:0.62rem;color:#2e2920;letter-spacing:0.06em;padding-right:6px}
+.chevron{font-size:1rem;color:#2e2920;transition:transform 0.2s,color 0.2s;line-height:1}
+.row.expanded .chevron{transform:rotate(90deg);color:#b8922a}
+
+.sub-panel{display:none;padding:2px 14px 18px;overflow-x:auto}
+.sub-panel::-webkit-scrollbar{display:none}
+.row.expanded .sub-panel{display:block}
+.variants-row{display:flex;gap:8px;padding:6px 0}
+
+.v-cell{flex-shrink:0;width:64px;display:flex;flex-direction:column;align-items:center;gap:5px;cursor:pointer;padding:8px 0;border-radius:10px;position:relative;transition:background 0.1s}
+.v-cell:active{background:#1a1810}
+.v-char{font-size:1.9rem;font-weight:900;color:#c8b888;line-height:1;transition:color 0.12s}
+.v-rom{font-family:system-ui,monospace;font-size:0.56rem;color:#3e3220;font-weight:700;letter-spacing:0.1em}
+.v-dot{width:5px;height:5px;border-radius:50%;background:#1c1c16;transition:background 0.2s}
+.v-cell.has-audio .v-dot{background:#2d7a4a}
+.v-cell.has-audio .v-char{color:#d4c49a}
+.v-cell.recording .v-dot{background:#c0392b;animation:dotblink 0.5s infinite}
+.v-cell.recording .v-char{color:#c0392b}
+.v-cell.playing .v-char{color:#c8a020}
+.v-cell.playing .v-dot{background:#c8a020;animation:dotblink 0.6s infinite}
+@keyframes dotblink{0%,100%{opacity:1}50%{opacity:0.15}}
+
+#hud{position:fixed;bottom:0;left:0;right:0;height:60px;background:#080806;border-top:1px solid #141410;display:flex;align-items:center;justify-content:space-between;padding:0 22px;z-index:50}
+#hud-fidel{font-size:1.6rem;font-weight:900;color:#2a2416;letter-spacing:0.02em}
+#hud-title{font-family:system-ui,sans-serif;font-size:0.62rem;color:#2a2416;letter-spacing:0.22em;text-transform:uppercase;font-weight:700}
+#hud-stats{font-family:system-ui,sans-serif;font-size:0.65rem;color:#2a2416;letter-spacing:0.08em;text-align:right;line-height:1.6}
+.prog-bar{position:absolute;top:0;left:0;right:0;height:2px;background:#141410}
+.prog-fill{height:100%;background:#2d7a4a;transition:width 0.4s ease;width:0%}
+
+/* RECORDING OVERLAY */
+#rec-overlay{position:fixed;inset:0;background:#050504;z-index:300;display:none;flex-direction:column;align-items:center;justify-content:center;gap:20px}
+#rec-overlay.active{display:flex}
+#rec-big-char{font-size:min(34vw,190px);font-weight:900;color:#d4c49a;line-height:1;text-align:center;letter-spacing:-0.02em}
+#rec-big-rom{font-family:system-ui,monospace;font-size:0.9rem;color:#4a3e28;letter-spacing:0.22em;font-weight:700}
+#rec-status{font-family:system-ui,sans-serif;font-size:0.75rem;color:#3a3020;letter-spacing:0.1em;min-height:20px}
+
+#rec-ring{width:84px;height:84px;border-radius:50%;border:2px solid #2a2416;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:border-color 0.2s;margin:8px 0}
+#rec-ring.recording{border-color:#c0392b;animation:ringpulse 1s infinite}
+@keyframes ringpulse{0%,100%{box-shadow:0 0 0 0 rgba(192,57,43,0.35)}50%{box-shadow:0 0 0 16px rgba(192,57,43,0)}}
+#rec-dot{width:32px;height:32px;border-radius:50%;background:#2a2416;transition:background 0.15s,transform 0.15s}
+#rec-ring.recording #rec-dot{background:#c0392b;transform:scale(0.85)}
+#rec-ring:active{opacity:0.7}
+
+#rec-hint{font-family:system-ui,sans-serif;font-size:0.7rem;color:#2a2416;letter-spacing:0.1em;text-align:center;line-height:2}
+.rec-action-row{display:flex;gap:16px;align-items:center}
+#rec-cancel{font-family:system-ui,sans-serif;font-size:0.72rem;color:#3a3020;letter-spacing:0.1em;cursor:pointer;padding:10px 22px;border:1px solid #1e1e18;border-radius:40px;background:transparent}
+#rec-cancel:active{background:#111}
+#rec-play-last{font-family:system-ui,sans-serif;font-size:0.72rem;color:#2d7a4a;letter-spacing:0.1em;cursor:pointer;padding:10px 22px;border:1px solid #1a3028;border-radius:40px;background:transparent;display:none}
+#rec-play-last.show{display:block}
+#rec-play-last:active{background:#0a1a10}
+
+/* PERMISSION BANNER */
+#perm-banner{position:fixed;top:0;left:0;right:0;background:#1a1810;border-bottom:1px solid #2d7a4a;padding:12px 18px;display:none;align-items:center;justify-content:space-between;z-index:400;gap:12px}
+#perm-banner.show{display:flex}
+#perm-text{font-size:0.72rem;color:#c8b888;flex:1}
+#perm-btn{font-size:0.7rem;color:#080806;background:#2d7a4a;border:none;padding:8px 16px;border-radius:20px;cursor:pointer;font-weight:700}
+#perm-btn:active{opacity:0.8}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="rows"></div>
+  <div id="hud">
+    <div class="prog-bar"><div class="prog-fill" id="prog-fill"></div></div>
+    <div id="hud-fidel">ፊደል</div>
+    <div id="hud-title">Fidel</div>
+    <div id="hud-stats">0 / 0</div>
+  </div>
+</div>
+
+<div id="rec-overlay">
+  <div id="rec-big-char"></div>
+  <div id="rec-big-rom"></div>
+  <div id="rec-status"></div>
+  <div id="rec-ring"><div id="rec-dot"></div></div>
+  <div id="rec-hint">tap circle to record<br>tap again to stop</div>
+  <div class="rec-action-row">
+    <div id="rec-cancel">cancel</div>
+    <div id="rec-play-last">play</div>
+  </div>
+</div>
+
+<div id="perm-banner">
+  <div id="perm-text">Microphone access needed to record letter sounds</div>
+  <button id="perm-btn">Allow</button>
+</div>
+
+<script>
+const ROWS=[
+  {root:"ሀ",rom:"h",v:[{c:"ሀ",r:"ha"},{c:"ሁ",r:"hu"},{c:"ሂ",r:"hi"},{c:"ሃ",r:"haa"},{c:"ሄ",r:"he"},{c:"ህ",r:"hɨ"},{c:"ሆ",r:"ho"}]},
+  {root:"ለ",rom:"l",v:[{c:"ለ",r:"le"},{c:"ሉ",r:"lu"},{c:"ሊ",r:"li"},{c:"ላ",r:"la"},{c:"ሌ",r:"lee"},{c:"ል",r:"lɨ"},{c:"ሎ",r:"lo"},{c:"ሏ",r:"lwa"}]},
+  {root:"ሐ",rom:"H",v:[{c:"ሐ",r:"Ha"},{c:"ሑ",r:"Hu"},{c:"ሒ",r:"Hi"},{c:"ሓ",r:"Haa"},{c:"ሔ",r:"He"},{c:"ሕ",r:"Hɨ"},{c:"ሖ",r:"Ho"}]},
+  {root:"መ",rom:"m",v:[{c:"መ",r:"me"},{c:"ሙ",r:"mu"},{c:"ሚ",r:"mi"},{c:"ማ",r:"ma"},{c:"ሜ",r:"mee"},{c:"ም",r:"mɨ"},{c:"ሞ",r:"mo"},{c:"ሟ",r:"mwa"}]},
+  {root:"ሠ",rom:"s̈",v:[{c:"ሠ",r:"s̈e"},{c:"ሡ",r:"s̈u"},{c:"ሢ",r:"s̈i"},{c:"ሣ",r:"s̈a"},{c:"ሤ",r:"s̈ee"},{c:"ሥ",r:"s̈ɨ"},{c:"ሦ",r:"s̈o"},{c:"ሧ",r:"s̈wa"}]},
+  {root:"ረ",rom:"r",v:[{c:"ረ",r:"re"},{c:"ሩ",r:"ru"},{c:"ሪ",r:"ri"},{c:"ራ",r:"ra"},{c:"ሬ",r:"ree"},{c:"ር",r:"rɨ"},{c:"ሮ",r:"ro"},{c:"ሯ",r:"rwa"}]},
+  {root:"ሰ",rom:"s",v:[{c:"ሰ",r:"se"},{c:"ሱ",r:"su"},{c:"ሲ",r:"si"},{c:"ሳ",r:"sa"},{c:"ሴ",r:"see"},{c:"ስ",r:"sɨ"},{c:"ሶ",r:"so"},{c:"ሷ",r:"swa"}]},
+  {root:"ሸ",rom:"sh",v:[{c:"ሸ",r:"she"},{c:"ሹ",r:"shu"},{c:"ሺ",r:"shi"},{c:"ሻ",r:"sha"},{c:"ሼ",r:"shee"},{c:"ሽ",r:"shɨ"},{c:"ሾ",r:"sho"},{c:"ሿ",r:"shwa"}]},
+  {root:"ቀ",rom:"q",v:[{c:"ቀ",r:"qe"},{c:"ቁ",r:"qu"},{c:"ቂ",r:"qi"},{c:"ቃ",r:"qa"},{c:"ቄ",r:"qee"},{c:"ቅ",r:"qɨ"},{c:"ቆ",r:"qo"},{c:"ቋ",r:"qwa"}]},
+  {root:"በ",rom:"b",v:[{c:"በ",r:"be"},{c:"ቡ",r:"bu"},{c:"ቢ",r:"bi"},{c:"ባ",r:"ba"},{c:"ቤ",r:"bee"},{c:"ብ",r:"bɨ"},{c:"ቦ",r:"bo"},{c:"ቧ",r:"bwa"}]},
+  {root:"ቨ",rom:"v",v:[{c:"ቨ",r:"ve"},{c:"ቩ",r:"vu"},{c:"ቪ",r:"vi"},{c:"ቫ",r:"va"},{c:"ቬ",r:"vee"},{c:"ቭ",r:"vɨ"},{c:"ቮ",r:"vo"},{c:"ቯ",r:"vwa"}]},
+  {root:"ተ",rom:"t",v:[{c:"ተ",r:"te"},{c:"ቱ",r:"tu"},{c:"ቲ",r:"ti"},{c:"ታ",r:"ta"},{c:"ቴ",r:"tee"},{c:"ት",r:"tɨ"},{c:"ቶ",r:"to"},{c:"ቷ",r:"twa"}]},
+  {root:"ቸ",rom:"ch",v:[{c:"ቸ",r:"che"},{c:"ቹ",r:"chu"},{c:"ቺ",r:"chi"},{c:"ቻ",r:"cha"},{c:"ቼ",r:"chee"},{c:"ች",r:"chɨ"},{c:"ቾ",r:"cho"},{c:"ቿ",r:"chwa"}]},
+  {root:"ነ",rom:"n",v:[{c:"ነ",r:"ne"},{c:"ኑ",r:"nu"},{c:"ኒ",r:"ni"},{c:"ና",r:"na"},{c:"ኔ",r:"nee"},{c:"ን",r:"nɨ"},{c:"ኖ",r:"no"},{c:"ኗ",r:"nwa"}]},
+  {root:"ኘ",rom:"ny",v:[{c:"ኘ",r:"nye"},{c:"ኙ",r:"nyu"},{c:"ኚ",r:"nyi"},{c:"ኛ",r:"nya"},{c:"ኜ",r:"nyee"},{c:"ኝ",r:"nyɨ"},{c:"ኞ",r:"nyo"},{c:"ኟ",r:"nywa"}]},
+  {root:"አ",rom:"ʾ",v:[{c:"አ",r:"a"},{c:"ኡ",r:"u"},{c:"ኢ",r:"i"},{c:"ኣ",r:"aa"},{c:"ኤ",r:"e"},{c:"እ",r:"ɨ"},{c:"ኦ",r:"o"}]},
+  {root:"ከ",rom:"k",v:[{c:"ከ",r:"ke"},{c:"ኩ",r:"ku"},{c:"ኪ",r:"ki"},{c:"ካ",r:"ka"},{c:"ኬ",r:"kee"},{c:"ክ",r:"kɨ"},{c:"ኮ",r:"ko"},{c:"ኳ",r:"kwa"}]},
+  {root:"ወ",rom:"w",v:[{c:"ወ",r:"we"},{c:"ዉ",r:"wu"},{c:"ዊ",r:"wi"},{c:"ዋ",r:"wa"},{c:"ዌ",r:"wee"},{c:"ው",r:"wɨ"},{c:"ዎ",r:"wo"}]},
+  {root:"ዐ",rom:"ʿ",v:[{c:"ዐ",r:"ʿa"},{c:"ዑ",r:"ʿu"},{c:"ዒ",r:"ʿi"},{c:"ዓ",r:"ʿaa"},{c:"ዔ",r:"ʿe"},{c:"ዕ",r:"ʿɨ"},{c:"ዖ",r:"ʿo"}]},
+  {root:"ዘ",rom:"z",v:[{c:"ዘ",r:"ze"},{c:"ዙ",r:"zu"},{c:"ዚ",r:"zi"},{c:"ዛ",r:"za"},{c:"ዜ",r:"zee"},{c:"ዝ",r:"zɨ"},{c:"ዞ",r:"zo"},{c:"ዟ",r:"zwa"}]},
+  {root:"ዠ",rom:"zh",v:[{c:"ዠ",r:"zhe"},{c:"ዡ",r:"zhu"},{c:"ዢ",r:"zhi"},{c:"ዣ",r:"zha"},{c:"ዤ",r:"zhee"},{c:"ዥ",r:"zhɨ"},{c:"ዦ",r:"zho"},{c:"ዧ",r:"zhwa"}]},
+  {root:"የ",rom:"y",v:[{c:"የ",r:"ye"},{c:"ዩ",r:"yu"},{c:"ዪ",r:"yi"},{c:"ያ",r:"ya"},{c:"ዬ",r:"yee"},{c:"ይ",r:"yɨ"},{c:"ዮ",r:"yo"}]},
+  {root:"ደ",rom:"d",v:[{c:"ደ",r:"de"},{c:"ዱ",r:"du"},{c:"ዲ",r:"di"},{c:"ዳ",r:"da"},{c:"ዴ",r:"dee"},{c:"ድ",r:"dɨ"},{c:"ዶ",r:"do"},{c:"ዷ",r:"dwa"}]},
+  {root:"ጀ",rom:"j",v:[{c:"ጀ",r:"je"},{c:"ጁ",r:"ju"},{c:"ጂ",r:"ji"},{c:"ጃ",r:"ja"},{c:"ጄ",r:"jee"},{c:"ጅ",r:"jɨ"},{c:"ጆ",r:"jo"},{c:"ጇ",r:"jwa"}]},
+  {root:"ገ",rom:"g",v:[{c:"ገ",r:"ge"},{c:"ጉ",r:"gu"},{c:"ጊ",r:"gi"},{c:"ጋ",r:"ga"},{c:"ጌ",r:"gee"},{c:"ግ",r:"gɨ"},{c:"ጎ",r:"go"},{c:"ጓ",r:"gwa"}]},
+  {root:"ጠ",rom:"ṭ",v:[{c:"ጠ",r:"ṭe"},{c:"ጡ",r:"ṭu"},{c:"ጢ",r:"ṭi"},{c:"ጣ",r:"ṭa"},{c:"ጤ",r:"ṭee"},{c:"ጥ",r:"ṭɨ"},{c:"ጦ",r:"ṭo"},{c:"ጧ",r:"ṭwa"}]},
+  {root:"ጨ",rom:"č",v:[{c:"ጨ",r:"če"},{c:"ጩ",r:"ču"},{c:"ጪ",r:"či"},{c:"ጫ",r:"ča"},{c:"ጬ",r:"čee"},{c:"ጭ",r:"čɨ"},{c:"ጮ",r:"čo"},{c:"ጯ",r:"čwa"}]},
+  {root:"ጰ",rom:"p̈",v:[{c:"ጰ",r:"p̈e"},{c:"ጱ",r:"p̈u"},{c:"ጲ",r:"p̈i"},{c:"ጳ",r:"p̈a"},{c:"ጴ",r:"p̈ee"},{c:"ጵ",r:"p̈ɨ"},{c:"ጶ",r:"p̈o"},{c:"ጷ",r:"p̈wa"}]},
+  {root:"ጸ",rom:"ṣ",v:[{c:"ጸ",r:"ṣe"},{c:"ጹ",r:"ṣu"},{c:"ጺ",r:"ṣi"},{c:"ጻ",r:"ṣa"},{c:"ጼ",r:"ṣee"},{c:"ጽ",r:"ṣɨ"},{c:"ጾ",r:"ṣo"},{c:"ጿ",r:"ṣwa"}]},
+  {root:"ፀ",rom:"ṡ",v:[{c:"ፀ",r:"ṡe"},{c:"ፁ",r:"ṡu"},{c:"ፂ",r:"ṡi"},{c:"ፃ",r:"ṡa"},{c:"ፄ",r:"ṡee"},{c:"ፅ",r:"ṡɨ"},{c:"ፆ",r:"ṡo"}]},
+  {root:"ፈ",rom:"f",v:[{c:"ፈ",r:"fe"},{c:"ፉ",r:"fu"},{c:"ፊ",r:"fi"},{c:"ፋ",r:"fa"},{c:"ፌ",r:"fee"},{c:"ፍ",r:"fɨ"},{c:"ፎ",r:"fo"},{c:"ፏ",r:"fwa"}]},
+  {root:"ፐ",rom:"p",v:[{c:"ፐ",r:"pe"},{c:"ፑ",r:"pu"},{c:"ፒ",r:"pi"},{c:"ፓ",r:"pa"},{c:"ፔ",r:"pee"},{c:"ፕ",r:"pɨ"},{c:"ፖ",r:"po"},{c:"ፗ",r:"pwa"}]}
+];
+
+// ===== STORAGE: IndexedDB with localStorage fallback =====
+const DB_NAME='fidel3',STORE='recs';
+let db=null,audioMap={},expandedRow=null,mediaRecorder=null,recChunks=[],recKey=null,recTimer=null,recSec=0,currentAudio=null,tapTimers={};
+const TOTAL=ROWS.reduce((s,r)=>s+r.v.length,0);
+let storageMode='memory'; // 'indexeddb', 'localstorage', or 'memory'
+
+function openDB(){
+  return new Promise((res)=>{
+    if(!window.indexedDB){storageMode='localstorage';res();return}
+    const r=indexedDB.open(DB_NAME,1);
+    r.onupgradeneeded=e=>e.target.result.createObjectStore(STORE);
+    r.onsuccess=e=>{db=e.target.result;storageMode='indexeddb';res()};
+    r.onerror=()=>{storageMode='localstorage';res()};
+  });
+}
+
+function dbGet(k){
+  return new Promise((r)=>{
+    if(storageMode==='indexeddb'&&db){
+      const q=db.transaction(STORE,'readonly').objectStore(STORE).get(k);
+      q.onsuccess=()=>r(q.result||null);
+      q.onerror=()=>r(localStorageGet(k));
+    } else {
+      r(localStorageGet(k));
+    }
+  });
+}
+
+function dbSet(k,v){
+  return new Promise((r)=>{
+    if(storageMode==='indexeddb'&&db){
+      const t=db.transaction(STORE,'readwrite');
+      t.objectStore(STORE).put(v,k);
+      t.oncomplete=()=>{localStorageSet(k,v);r()};
+      t.onerror=()=>{localStorageSet(k,v);r()};
+    } else {
+      localStorageSet(k,v);r();
+    }
+  });
+}
+
+function dbKeys(){
+  return new Promise((r)=>{
+    if(storageMode==='indexeddb'&&db){
+      const q=db.transaction(STORE,'readonly').objectStore(STORE).getAllKeys();
+      q.onsuccess=()=>r(q.result);
+      q.onerror=()=>r(Object.keys(localStorage).filter(k=>k.startsWith('fidel_')));
+    } else {
+      r(Object.keys(localStorage).filter(k=>k.startsWith('fidel_')));
+    }
+  });
+}
+
+// localStorage helpers for audio blobs (base64)
+function localStorageGet(k){
+  const data=localStorage.getItem('fidel_'+k);
+  if(!data)return null;
+  try{
+    const bin=atob(data);
+    const arr=new Uint8Array(bin.length);
+    for(let i=0;i<bin.length;i++)arr[i]=bin.charCodeAt(i);
+    return new Blob([arr],{type:'audio/webm'});
+  }catch(e){return null}
+}
+function localStorageSet(k,v){
+  const reader=new FileReader();
+  reader.onloadend=()=>{
+    const base64=reader.result.split(',')[1];
+    localStorage.setItem('fidel_'+k,base64);
+  };
+  reader.readAsDataURL(v);
+}
+
+// ===== BUILD UI =====
+function build(){
+  const container=document.getElementById('rows');
+  ROWS.forEach((row,ri)=>{
+    const el=document.createElement('div');
+    el.className='row';el.id='row-'+ri;
+
+    const btn=document.createElement('button');
+    btn.className='root-btn';
+    btn.innerHTML='<span class="root-char">'+row.root+'</span>'
+      +'<span class="root-rom">'+row.rom+'</span>'
+      +'<span class="root-preview">'+row.v.slice(1,6).map(v=>'<span>'+v.c+'</span>').join('')+'</span>'
+      +'<span class="row-count">'+row.v.length+'</span>'
+      +'<span class="chevron">&#8250;</span>';
+    btn.addEventListener('click',()=>toggleRow(ri,el));
+
+    const panel=document.createElement('div');
+    panel.className='sub-panel';panel.id='panel-'+ri;
+    const vrow=document.createElement('div');
+    vrow.className='variants-row';
+
+    row.v.forEach(v=>{
+      const cell=document.createElement('div');
+      cell.className='v-cell';cell.id='cell-'+v.c;
+      cell.innerHTML='<div class="v-char">'+v.c+'</div><div class="v-rom">'+v.r+'</div><div class="v-dot"></div>';
+      cell.addEventListener('click',e=>{
+        e.stopPropagation();
+        const key=v.c;
+        if(tapTimers[key]){
+          clearTimeout(tapTimers[key]);delete tapTimers[key];
+          openRecOverlay(key,v.c,v.r);
+        } else {
+          tapTimers[key]=setTimeout(()=>{
+            delete tapTimers[key];
+            if(audioMap[key]) playAudio(key,cell);
+          },260);
+        }
+      });
+      vrow.appendChild(cell);
+    });
+    panel.appendChild(vrow);
+    el.appendChild(btn);el.appendChild(panel);
+    container.appendChild(el);
+  });
+}
+
+function toggleRow(ri,el){
+  if(expandedRow!==null&&expandedRow!==ri){
+    const p=document.getElementById('row-'+expandedRow);
+    if(p)p.classList.remove('expanded');
+  }
+  el.classList.toggle('expanded');
+  expandedRow=el.classList.contains('expanded')?ri:null;
+  if(expandedRow!==null)setTimeout(()=>el.scrollIntoView({behavior:'smooth',block:'nearest'}),40);
+}
+
+function playAudio(key,cell){
+  if(currentAudio){currentAudio.pause();currentAudio=null}
+  const blob=audioMap[key];if(!blob)return;
+  const url=URL.createObjectURL(blob);
+  currentAudio=new Audio(url);
+  if(cell)cell.classList.add('playing');
+  currentAudio.play();
+  currentAudio.onended=()=>{URL.revokeObjectURL(url);currentAudio=null;if(cell)cell.classList.remove('playing')};
+}
+
+// ===== RECORDING OVERLAY =====
+const overlay=document.getElementById('rec-overlay');
+const bigChar=document.getElementById('rec-big-char');
+const bigRom=document.getElementById('rec-big-rom');
+const statusEl=document.getElementById('rec-status');
+const ring=document.getElementById('rec-ring');
+const cancelBtn=document.getElementById('rec-cancel');
+const playLastBtn=document.getElementById('rec-play-last');
+const permBanner=document.getElementById('perm-banner');
+const permBtn=document.getElementById('perm-btn');
+
+let currentRecKey=null,currentRecChar=null,currentRecRom=null;
+let micPermission=false;
+
+// Check/request microphone permission
+function checkMicPermission(){
+  if(!navigator.mediaDevices)return false;
+  navigator.mediaDevices.getUserMedia({audio:true})
+    .then(stream=>{
+      micPermission=true;
+      stream.getTracks().forEach(t=>t.stop());
+      permBanner.classList.remove('show');
+    })
+    .catch(()=>{
+      permBanner.classList.add('show');
+    });
+  return micPermission;
+}
+
+permBtn.addEventListener('click',()=>{
+  if(navigator.mediaDevices){
+    navigator.mediaDevices.getUserMedia({audio:true})
+      .then(stream=>{
+        micPermission=true;
+        stream.getTracks().forEach(t=>t.stop());
+        permBanner.classList.remove('show');
+      })
+      .catch(()=>alert('Please allow microphone access in app settings'));
+  }
+});
+
+function openRecOverlay(key,char,rom){
+  if(currentAudio){currentAudio.pause();currentAudio=null}
+  currentRecKey=key;currentRecChar=char;currentRecRom=rom;
+  bigChar.textContent=char;bigRom.textContent=rom;
+  statusEl.textContent='';
+  ring.className='rec-ring idle';
+  playLastBtn.className='rec-play-last'+(audioMap[key]?' show':'');
+  overlay.classList.add('active');
+  checkMicPermission();
+}
+
+ring.addEventListener('click',()=>{
+  if(!micPermission){checkMicPermission();return}
+  if(!mediaRecorder||mediaRecorder.state==='inactive')startRec();
+  else stopRec();
+});
+
+cancelBtn.addEventListener('click',()=>{
+  if(mediaRecorder&&mediaRecorder.state==='recording')stopRec(true);
+  else closeOverlay();
+});
+
+playLastBtn.addEventListener('click',()=>{
+  if(audioMap[currentRecKey]){
+    playAudio(currentRecKey,null);
+  }
+});
+
+async function startRec(){
+  if(!navigator.mediaDevices){alert('Microphone not supported');return}
+  try{
+    const stream=await navigator.mediaDevices.getUserMedia({audio:true});
+    recChunks=[];
+    mediaRecorder=new MediaRecorder(stream);
+    mediaRecorder.ondataavailable=e=>recChunks.push(e.data);
+    mediaRecorder.onstop=()=>finishRec(stream);
+    mediaRecorder.start();
+    ring.className='rec-ring recording';
+    recSec=0;statusEl.textContent='0s';
+    recTimer=setInterval(()=>{recSec++;statusEl.textContent=recSec+'s'},1000);
+    const cell=document.getElementById('cell-'+currentRecKey);
+    if(cell)cell.classList.add('recording');
+  }catch(e){alert('Allow microphone access to record')}
+}
+
+function stopRec(cancel=false){
+  if(recTimer){clearInterval(recTimer);recTimer=null}
+  ring.className='rec-ring idle';
+  statusEl.textContent='';
+  if(mediaRecorder&&mediaRecorder.state==='recording'){
+    if(cancel){mediaRecorder.ondataavailable=null;mediaRecorder.onstop=()=>{}}
+    mediaRecorder.stop();
+  }
+  const cell=document.getElementById('cell-'+currentRecKey);
+  if(cell)cell.classList.remove('recording');
+  if(cancel)closeOverlay();
+}
+
+async function finishRec(stream){
+  stream.getTracks().forEach(t=>t.stop());
+  if(recChunks.length===0){statusEl.textContent='no audio';setTimeout(closeOverlay,700);return}
+  const blob=new Blob(recChunks,{type:'audio/webm'});
+  const key=currentRecKey;
+  await dbSet(key,blob);
+  audioMap[key]=blob;
+  const cell=document.getElementById('cell-'+key);
+  if(cell){cell.classList.add('has-audio');cell.classList.remove('recording')}
+  updateHUD();
+  playLastBtn.className='rec-play-last show';
+  statusEl.textContent='saved';
+  setTimeout(()=>{statusEl.textContent='';closeOverlay()},700);
+}
+
+function closeOverlay(){overlay.classList.remove('active');mediaRecorder=null}
+
+function updateHUD(){
+  const count=Object.keys(audioMap).length;
+  document.getElementById('hud-stats').textContent=count+' / '+TOTAL;
+  document.getElementById('prog-fill').style.width=Math.round(count/TOTAL*100)+'%';
+}
+
+// ===== INIT =====
+async function init(){
+  await openDB();
+  const keys=await dbKeys();
+  for(const k of keys){
+    const b=await dbGet(k);
+    if(b)audioMap[k]=b;
+  }
+  build();
+  Object.keys(audioMap).forEach(k=>{const c=document.getElementById('cell-'+k);if(c)c.classList.add('has-audio')});
+  updateHUD();
+  checkMicPermission();
+}
+init();
+</script>
+</body>
+</html>
